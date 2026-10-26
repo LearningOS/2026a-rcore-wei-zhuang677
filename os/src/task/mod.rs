@@ -23,6 +23,8 @@ pub use task::{TaskControlBlock, TaskStatus};
 
 pub use context::TaskContext;
 
+use alloc::collections::BTreeMap;
+
 /// The task manager, where all the tasks are managed.
 ///
 /// Functions implemented on `TaskManager` deals with all task state transitions
@@ -51,10 +53,13 @@ lazy_static! {
     /// Global variable: TASK_MANAGER
     pub static ref TASK_MANAGER: TaskManager = {
         let num_app = get_num_app();
-        let mut tasks = [TaskControlBlock {
+        let mut tasks: [TaskControlBlock; MAX_APP_NUM] = core::array::from_fn(|_| {
+        TaskControlBlock {
             task_cx: TaskContext::zero_init(),
             task_status: TaskStatus::UnInit,
-        }; MAX_APP_NUM];
+            syscall_num: BTreeMap::new(),
+            }
+        });
         for (i, task) in tasks.iter_mut().enumerate() {
             task.task_cx = TaskContext::goto_restore(init_app_cx(i));
             task.task_status = TaskStatus::Ready;
@@ -135,6 +140,18 @@ impl TaskManager {
             panic!("All applications completed!");
         }
     }
+
+    fn add_syscall_num(&self,syscall_id: usize){
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        *inner.tasks[current].syscall_num.entry(syscall_id).or_insert(0) += 1;
+    }
+
+    fn find_syscall_num(&self,id: usize) -> usize{
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        *inner.tasks[current].syscall_num.entry(id).or_insert(0)
+    }
 }
 
 /// Run the first task in task list.
@@ -168,4 +185,14 @@ pub fn suspend_current_and_run_next() {
 pub fn exit_current_and_run_next() {
     mark_current_exited();
     run_next_task();
+}
+
+/// 
+pub fn syscall_num_add(syscall_id: usize){
+    TASK_MANAGER.add_syscall_num(syscall_id);
+}
+
+///
+pub fn syscall_num_find(id: usize) -> usize{
+    TASK_MANAGER.find_syscall_num(id)
 }
