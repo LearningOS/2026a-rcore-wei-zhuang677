@@ -14,6 +14,7 @@ mod switch;
 #[allow(clippy::module_inception)]
 mod task;
 
+use crate::mm::{VirtAddr, MapPermission};
 use crate::loader::{get_app_data, get_num_app};
 use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;
@@ -153,6 +154,30 @@ impl TaskManager {
             panic!("All applications completed!");
         }
     }
+
+    fn add_syscall_num(&self,syscall_id: usize){
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        *inner.tasks[current].syscall_num.entry(syscall_id).or_insert(0) += 1;
+    }
+
+    fn find_syscall_num(&self,id: usize) -> usize{
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        *inner.tasks[current].syscall_num.entry(id).or_insert(0)
+    }
+
+    fn insert_framed_to_current_task_space(&self,start_va:VirtAddr ,end_va:VirtAddr,permission:MapPermission){
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].memory_set.insert_framed_area(start_va, end_va, permission);
+    }
+
+    fn munmap_framed_to_current_task_space(&self,start_va:VirtAddr ,end_va:VirtAddr){
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].memory_set.munmap_area(start_va, end_va);
+    }
 }
 
 /// Run the first task in task list.
@@ -201,4 +226,24 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
 /// Change the current 'Running' task's program break
 pub fn change_program_brk(size: i32) -> Option<usize> {
     TASK_MANAGER.change_current_program_brk(size)
+}
+
+/// 
+pub fn syscall_num_add(syscall_id: usize){
+    TASK_MANAGER.add_syscall_num(syscall_id);
+}
+
+///
+pub fn syscall_num_find(id: usize) -> usize{
+    TASK_MANAGER.find_syscall_num(id)
+}
+
+/// Insert a framed area into the current task's memory space
+pub fn insert_framed(start_va:VirtAddr ,end_va:VirtAddr,flag:usize){
+    TASK_MANAGER.insert_framed_to_current_task_space(start_va, end_va, MapPermission::from_bits((flag as u8)<<1).unwrap() |MapPermission::U);
+}
+
+/// Unmap a framed area from the current task's memory space
+pub fn munmap_framed(start_va:VirtAddr ,end_va:VirtAddr){
+    TASK_MANAGER.munmap_framed_to_current_task_space(start_va, end_va);
 }

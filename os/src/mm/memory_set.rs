@@ -262,6 +262,19 @@ impl MemorySet {
             false
         }
     }
+    /// Unmap a memory area
+    pub fn munmap_area(&mut self, start: VirtAddr, _end: VirtAddr) -> bool {
+        if let Some(area) = self
+            .areas
+            .iter_mut()
+            .find(|area| area.vpn_range.get_start() == start.floor())
+        {
+            area.unmap(&mut self.page_table);
+            true
+        } else {
+            false
+        }
+    }
 }
 /// map area structure, controls a contiguous piece of virtual memory
 pub struct MapArea {
