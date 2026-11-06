@@ -37,7 +37,6 @@ const SYSCALL_MMAP: usize = 222;
 const SYSCALL_WAITPID: usize = 260;
 /// spawn syscall
 const SYSCALL_SPAWN: usize = 400;
-
 mod fs;
 mod process;
 

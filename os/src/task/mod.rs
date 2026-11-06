@@ -17,14 +17,17 @@ mod context;
 mod id;
 mod manager;
 mod processor;
+mod stride;
 mod switch;
 #[allow(clippy::module_inception)]
 mod task;
 
+use crate::mm::{VirtAddr, MapPermission};
 use crate::loader::get_app_data_by_name;
 use alloc::sync::Arc;
 use lazy_static::*;
 pub use manager::{fetch_task, TaskManager};
+pub use stride::Stride;
 use switch::__switch;
 pub use task::{TaskControlBlock, TaskStatus};
 
@@ -114,4 +117,18 @@ lazy_static! {
 ///Add init process to the manager
 pub fn add_initproc() {
     add_task(INITPROC.clone());
+}
+
+/// Insert a framed area into the current task's memory space
+pub fn insert_framed(start_va:VirtAddr ,end_va:VirtAddr,flag:usize){
+    let task = current_task().unwrap();
+    let mut task_inner = task.inner_exclusive_access();
+    task_inner.memory_set.insert_framed_area(start_va, end_va, MapPermission::from_bits((flag as u8)<<1).unwrap() |MapPermission::U);
+}
+
+/// Unmap a framed area from the current task's memory space
+pub fn munmap_framed(start_va:VirtAddr ,end_va:VirtAddr){
+    let task = current_task().unwrap();
+    let mut task_inner = task.inner_exclusive_access();
+    task_inner.memory_set.munmap_area(start_va, end_va);
 }

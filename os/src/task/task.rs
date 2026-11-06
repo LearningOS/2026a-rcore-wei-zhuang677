@@ -1,5 +1,6 @@
 //! Types related to task management & Functions for completely changing TCB
 use super::TaskContext;
+use super::Stride;
 use super::{kstack_alloc, pid_alloc, KernelStack, PidHandle};
 use crate::config::TRAP_CONTEXT_BASE;
 use crate::mm::{MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE};
@@ -8,7 +9,6 @@ use crate::trap::{trap_handler, TrapContext};
 use alloc::sync::{Arc, Weak};
 use alloc::vec::Vec;
 use core::cell::RefMut;
-
 /// Task control block structure
 ///
 /// Directly save the contents that will not change during running
@@ -68,6 +68,9 @@ pub struct TaskControlBlockInner {
 
     /// Program break
     pub program_brk: usize,
+
+    /// Task stride state for stride scheduling
+    pub stride: Stride,
 }
 
 impl TaskControlBlockInner {
@@ -118,6 +121,7 @@ impl TaskControlBlock {
                     exit_code: 0,
                     heap_bottom: user_sp,
                     program_brk: user_sp,
+                    stride: Stride::default(),
                 })
             },
         };
@@ -191,6 +195,7 @@ impl TaskControlBlock {
                     exit_code: 0,
                     heap_bottom: parent_inner.heap_bottom,
                     program_brk: parent_inner.program_brk,
+                    stride: parent_inner.stride.clone(),
                 })
             },
         });

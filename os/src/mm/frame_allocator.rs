@@ -85,6 +85,20 @@ impl FrameAllocator for StackFrameAllocator {
     }
 }
 
+impl StackFrameAllocator {
+    pub fn test_frame_alloc(&mut self, num: usize) -> isize {
+        if self.end - self.current + self.recycled.len() < num {
+            -1
+        } else {
+            0
+        }
+    }
+}
+///
+pub fn test_alloc_num(num: usize) -> isize{
+    FRAME_ALLOCATOR.exclusive_access().test_frame_alloc(num)
+}
+
 type FrameAllocatorImpl = StackFrameAllocator;
 
 lazy_static! {
